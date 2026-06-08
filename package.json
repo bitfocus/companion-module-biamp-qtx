@@ -1,21 +1,20 @@
 {
 	"name": "companion-module-biamp-qtx",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"main": "dist/main.js",
 	"type": "module",
 	"scripts": {
 		"format": "prettier -w .",
-		"package": "run build && companion-module-build",
-		"build": "rimraf dist && run build:main",
+		"package": "rimraf dist && tsc -p tsconfig.build.json && companion-module-build",
+		"build": "rimraf dist && tsc -p tsconfig.build.json",
 		"build:main": "tsc -p tsconfig.build.json",
 		"dev": "tsc -p tsconfig.build.json --watch",
-		"lint:raw": "eslint",
-		"lint": "run lint:raw ."
+		"lint": "eslint ."
 	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/themusicnerd/companion-module-biamp-qtx.git"
+		"url": "git+https://github.com/bitfocus/companion-module-biamp-qtx.git"
 	},
 	"engines": {
 		"node": "^22.20",

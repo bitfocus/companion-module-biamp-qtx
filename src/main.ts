@@ -34,7 +34,7 @@ function getZoneValue(
 }
 
 function uiDbToApiLevel(value: number): number {
-	return Math.round((value + 10) * 10)
+	return Math.round((value - 10) * 10)
 }
 
 function getOutputMap(value: unknown): Map<string, string> {
@@ -194,7 +194,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	formatMaskingLevel(zoneId: string, format: 'api' | 'ui', emptyText: string): string {
 		const level = this.getMaskingLevel(zoneId)
 		if (level === undefined) return emptyText
-		if (format === 'ui') return `${level / 10 - 10} dB`
+		if (format === 'ui') return `${level / 10 + 10} dB`
 		return String(level)
 	}
 

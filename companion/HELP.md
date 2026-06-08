@@ -10,6 +10,6 @@ Use **Refresh zones** after connecting. Zone IDs are UUID/GUID values available 
 
 ## Level Scaling
 
-Qt X API levels use the device's raw API value. Biamp documents that the Qt X UI converts API levels by dividing by 10 and subtracting 10.
+Qt X API levels use the device's raw API value. Biamp documents that the Qt X UI/API level examples map UI dB to API values by subtracting 10 and multiplying by 10.
 
 For example, UI `10 dB` is API `0`, and UI `0 dB` is API `-100`.
