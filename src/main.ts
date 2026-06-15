@@ -16,6 +16,22 @@ interface ApiResponse<T> {
 	rawBody: string
 }
 
+const MIN_MASKING_LEVEL = -1000
+const MAX_MASKING_LEVEL = 200
+const MAX_RAW_VARIABLE_LENGTH = 4000
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(Math.max(value, min), max)
+}
+
+function clampMaskingLevel(value: number): number {
+	return clamp(Math.round(value), MIN_MASKING_LEVEL, MAX_MASKING_LEVEL)
+}
+
+function truncateVariableValue(value: string): string {
+	return value.length > MAX_RAW_VARIABLE_LENGTH ? `${value.slice(0, MAX_RAW_VARIABLE_LENGTH)}...` : value
+}
+
 function getZoneId(zone: ZoneData): string | undefined {
 	const id = zone.Id ?? zone.ID ?? zone.id ?? zone.Guid ?? zone.GUID ?? zone.guid
 	return typeof id === 'string' && id.trim() ? id.trim() : undefined
@@ -34,7 +50,7 @@ function getZoneValue(
 }
 
 function uiDbToApiLevel(value: number): number {
-	return Math.round((value - 10) * 10)
+	return clampMaskingLevel((value - 10) * 10)
 }
 
 function getOutputMap(value: unknown): Map<string, string> {
@@ -126,6 +142,7 @@ function makeZoneUpdateBody(zone: ZoneData, patch: Partial<ZoneData>): ZoneData 
 export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	config!: ModuleConfig
 	private zones = new Map<string, ZoneSummary>()
+	private configGeneration = 0
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -133,6 +150,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async init(config: ModuleConfig): Promise<void> {
 		this.config = config
+		this.configGeneration++
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updatePresets()
@@ -143,13 +161,18 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async destroy(): Promise<void> {
 		this.log('debug', 'destroy')
+		this.configGeneration++
+		this.zones.clear()
+		this.updateStatus(InstanceStatus.Disconnected)
 	}
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
 		this.config = config
+		this.configGeneration++
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updatePresets()
+		this.updateVariableDefinitions()
 		this.updateVariables('Config updated')
 		await this.refreshZones()
 	}
@@ -199,9 +222,12 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	}
 
 	async refreshZones(): Promise<void> {
+		const generation = this.configGeneration
 		try {
 			this.updateStatus(InstanceStatus.Connecting, 'Refreshing zones')
 			const response = await this.request<unknown>('GET', '/api/v1/Config')
+			if (generation !== this.configGeneration) return
+
 			const zones = findZones(response.body)
 			const outputs = getOutputMap(response.body)
 			this.zones.clear()
@@ -243,7 +269,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	}
 
 	async setMaskingLevel(zoneId: string, level: number, format: 'api' | 'ui'): Promise<void> {
-		const apiLevel = format === 'ui' ? uiDbToApiLevel(level) : Math.round(level)
+		const apiLevel = format === 'ui' ? uiDbToApiLevel(level) : clampMaskingLevel(level)
 		await this.updateZone(zoneId, { MaskingLevel: apiLevel })
 	}
 
@@ -257,13 +283,21 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		const currentLevel = Number(getZoneValue(zone, 'MaskingLevel') ?? offLevel)
 		const currentActive = currentLevel > offLevel
 		const nextActive = state === 'toggle' ? !currentActive : state === 'true'
-		await this.updateZone(zoneId, { MaskingLevel: nextActive ? Math.round(onLevel) : Math.round(offLevel) }, zone)
+		await this.updateZone(
+			zoneId,
+			{ MaskingLevel: nextActive ? clampMaskingLevel(onLevel) : clampMaskingLevel(offLevel) },
+			zone,
+		)
 	}
 
 	async adjustMaskingLevel(zoneId: string, amount: number, format: 'api' | 'ui'): Promise<void> {
 		const zone = await this.getZone(zoneId)
 		const current = Number(getZoneValue(zone, 'MaskingLevel') ?? -100)
-		await this.updateZone(zoneId, { MaskingLevel: current + levelDeltaToApiDelta(amount, format) }, zone)
+		await this.updateZone(
+			zoneId,
+			{ MaskingLevel: clampMaskingLevel(current + levelDeltaToApiDelta(amount, format)) },
+			zone,
+		)
 	}
 
 	async setZoneMuted(zoneId: string, muted: boolean): Promise<void> {
@@ -271,9 +305,15 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	}
 
 	async putCustomZoneJson(zoneId: string, json: string): Promise<void> {
-		const id = zoneId.trim()
+		const id = this.resolveZoneId(zoneId)
 		if (!id) throw new Error('Zone ID is required')
-		const body = JSON.parse(json) as ZoneData
+		let body: ZoneData
+		try {
+			body = JSON.parse(json) as ZoneData
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			throw new Error(`Invalid JSON body: ${message}`)
+		}
 		const response = await this.request<unknown>('PUT', `/api/v1/Config/Zone/${encodeURIComponent(id)}`, body)
 		this.updateStatus(InstanceStatus.Ok)
 		this.updateVariables(`PUT zone ${id}`, response.rawBody)
@@ -437,22 +477,29 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 			connection_status: status,
 			zone_count: summary.length,
 			zones_list: summary.map((item) => `${item.output ? `${item.output}: ` : ''}${item.name} (${item.id})`).join('\n'),
-			zones_json: JSON.stringify(summary),
+			zones_json: truncateVariableValue(JSON.stringify(summary)),
 			last_zone_id: zoneId,
 			last_zone_name: zoneName,
 			last_masking_level: maskingLevel,
 			last_error: '',
-			last_response: response,
+			last_response: truncateVariableValue(response),
 			...zoneVariables,
 		})
 	}
 
-	private handleError(error: unknown): void {
+	handleError(error: unknown): void {
 		const message = error instanceof Error ? error.message : String(error)
-		this.log('error', message)
-		this.updateStatus(InstanceStatus.ConnectionFailure, message)
+		const isConnectionError =
+			/(\bECONNREFUSED\b|\bECONNRESET\b|\bENOTFOUND\b|\bEHOSTUNREACH\b|\bETIMEDOUT\b|\btimed out\b|socket hang up|Target host is required)/i.test(
+				message,
+			)
+
+		this.log(isConnectionError ? 'error' : 'warn', message)
+		if (isConnectionError) {
+			this.updateStatus(InstanceStatus.ConnectionFailure, message)
+		}
 		this.setVariableValues({
-			connection_status: 'Error',
+			connection_status: isConnectionError ? 'Connection error' : 'Request error',
 			last_error: message,
 		})
 	}
