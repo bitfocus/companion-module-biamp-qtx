@@ -5,6 +5,14 @@ function parseLevelFormat(value: unknown): 'api' | 'ui' {
 	return value === 'ui' ? 'ui' : 'api'
 }
 
+async function runWriteAction(self: ModuleInstance, task: () => Promise<void>): Promise<void> {
+	try {
+		await task()
+	} catch (error) {
+		self.handleError(error)
+	}
+}
+
 export function UpdateActions(self: ModuleInstance): void {
 	const actions: CompanionActionDefinitions = {
 		refresh_zones: {
@@ -20,16 +28,16 @@ export function UpdateActions(self: ModuleInstance): void {
 				{
 					id: 'zoneId',
 					type: 'textinput',
-					label: 'Zone ID / GUID',
-					default: '',
+					label: 'Zone ID / name / output',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
 					id: 'level',
 					type: 'number',
-					label: 'Level',
+					label: 'Level (API -1000 to 200, or UI -90 dB to 30 dB)',
 					default: -100,
-					min: -200,
+					min: -1000,
 					max: 200,
 					step: 1,
 				},
@@ -45,12 +53,14 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
-				await self.setMaskingLevel(
-					zoneId,
-					Number(action.options.level ?? -100),
-					parseLevelFormat(action.options.levelFormat),
-				)
+				await runWriteAction(self, async () => {
+					const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
+					await self.setMaskingLevel(
+						zoneId,
+						Number(action.options.level ?? -100),
+						parseLevelFormat(action.options.levelFormat),
+					)
+				})
 			},
 		},
 		adjust_masking_level: {
@@ -59,14 +69,14 @@ export function UpdateActions(self: ModuleInstance): void {
 				{
 					id: 'zoneId',
 					type: 'textinput',
-					label: 'Zone ID / GUID',
-					default: '',
+					label: 'Zone ID / name / output',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
 					id: 'amount',
 					type: 'number',
-					label: 'Amount',
+					label: 'Amount (API units, or UI dB)',
 					default: 10,
 					min: -200,
 					max: 200,
@@ -84,12 +94,14 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
-				await self.adjustMaskingLevel(
-					zoneId,
-					Number(action.options.amount ?? 10),
-					parseLevelFormat(action.options.levelFormat),
-				)
+				await runWriteAction(self, async () => {
+					const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
+					await self.adjustMaskingLevel(
+						zoneId,
+						Number(action.options.amount ?? 10),
+						parseLevelFormat(action.options.levelFormat),
+					)
+				})
 			},
 		},
 		masking_enable: {
@@ -99,7 +111,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					id: 'zoneId',
 					type: 'textinput',
 					label: 'Zone ID / name / output',
-					default: '',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
@@ -133,14 +145,16 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
-				const state = String(action.options.state ?? 'toggle')
-				await self.setMaskingEnabled(
-					zoneId,
-					state === 'true' || state === 'false' ? state : 'toggle',
-					Number(action.options.onLevel ?? -100),
-					Number(action.options.offLevel ?? -400),
-				)
+				await runWriteAction(self, async () => {
+					const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
+					const state = String(action.options.state ?? 'toggle')
+					await self.setMaskingEnabled(
+						zoneId,
+						state === 'true' || state === 'false' ? state : 'toggle',
+						Number(action.options.onLevel ?? -100),
+						Number(action.options.offLevel ?? -400),
+					)
+				})
 			},
 		},
 		mute_zone: {
@@ -149,8 +163,8 @@ export function UpdateActions(self: ModuleInstance): void {
 				{
 					id: 'zoneId',
 					type: 'textinput',
-					label: 'Zone ID / GUID',
-					default: '',
+					label: 'Zone ID / name / output',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
@@ -165,8 +179,10 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
-				await self.setZoneMuted(zoneId, action.options.muted === 'true')
+				await runWriteAction(self, async () => {
+					const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
+					await self.setZoneMuted(zoneId, action.options.muted === 'true')
+				})
 			},
 		},
 		put_zone_json: {
@@ -175,8 +191,8 @@ export function UpdateActions(self: ModuleInstance): void {
 				{
 					id: 'zoneId',
 					type: 'textinput',
-					label: 'Zone ID / GUID',
-					default: '',
+					label: 'Zone ID / name / output',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
@@ -188,9 +204,11 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
-				const json = await self.parseVariablesInString(String(action.options.json ?? '{}'))
-				await self.putCustomZoneJson(zoneId, json)
+				await runWriteAction(self, async () => {
+					const zoneId = await self.parseVariablesInString(String(action.options.zoneId ?? ''))
+					const json = await self.parseVariablesInString(String(action.options.json ?? '{}'))
+					await self.putCustomZoneJson(zoneId, json)
+				})
 			},
 		},
 	}

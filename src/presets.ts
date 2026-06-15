@@ -1,6 +1,8 @@
 import { combineRgb, type CompanionPresetDefinitions } from '@companion-module/base'
 import type { ModuleInstance } from './main.js'
 
+const DEFAULT_ZONE_ID = 'output1'
+
 export function UpdatePresets(self: ModuleInstance): void {
 	const presets: CompanionPresetDefinitions = {}
 
@@ -22,7 +24,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 						{
 							actionId: 'set_masking_level',
 							options: {
-								zoneId: '',
+								zoneId: DEFAULT_ZONE_ID,
 								level,
 								levelFormat: 'api',
 							},
@@ -52,7 +54,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 					{
 						actionId: 'masking_enable',
 						options: {
-							zoneId: '',
+							zoneId: DEFAULT_ZONE_ID,
 							state: 'toggle',
 							onLevel: -100,
 							offLevel: -400,
@@ -66,7 +68,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 			{
 				feedbackId: 'masking_enabled',
 				options: {
-					zoneId: '',
+					zoneId: DEFAULT_ZONE_ID,
 				},
 				style: {
 					color: combineRgb(255, 255, 255),

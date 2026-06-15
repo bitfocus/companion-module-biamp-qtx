@@ -33,13 +33,13 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				{
 					id: 'zoneId',
 					type: 'textinput',
-					label: 'Zone ID',
-					default: '',
+					label: 'Zone ID / name / output',
+					default: 'output1',
 					useVariables: true,
 				},
 			],
-			callback: async (feedback) => {
-				const zoneId = await self.parseVariablesInString(String(feedback.options.zoneId ?? ''))
+			callback: async (feedback, context) => {
+				const zoneId = await context.parseVariablesInString(String(feedback.options.zoneId ?? ''))
 				return self.isZoneMuted(zoneId)
 			},
 		},
@@ -55,12 +55,12 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					id: 'zoneId',
 					type: 'textinput',
 					label: 'Zone ID / name / output',
-					default: '',
+					default: 'output1',
 					useVariables: true,
 				},
 			],
-			callback: async (feedback) => {
-				const zoneId = await self.parseVariablesInString(String(feedback.options.zoneId ?? ''))
+			callback: async (feedback, context) => {
+				const zoneId = await context.parseVariablesInString(String(feedback.options.zoneId ?? ''))
 				return self.isMaskingEnabled(zoneId)
 			},
 		},
@@ -76,7 +76,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					id: 'zoneId',
 					type: 'textinput',
 					label: 'Zone ID / name / output',
-					default: '',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
@@ -102,8 +102,8 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					step: 1,
 				},
 			],
-			callback: async (feedback) => {
-				const zoneId = await self.parseVariablesInString(String(feedback.options.zoneId ?? ''))
+			callback: async (feedback, context) => {
+				const zoneId = await context.parseVariablesInString(String(feedback.options.zoneId ?? ''))
 				return compareLevel(
 					self.getMaskingLevel(zoneId),
 					String(feedback.options.comparison ?? 'eq'),
@@ -119,7 +119,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					id: 'zoneId',
 					type: 'textinput',
 					label: 'Zone ID / name / output',
-					default: '',
+					default: 'output1',
 					useVariables: true,
 				},
 				{
@@ -147,10 +147,10 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					useVariables: true,
 				},
 			],
-			callback: async (feedback) => {
-				const zoneId = await self.parseVariablesInString(String(feedback.options.zoneId ?? ''))
-				const prefix = await self.parseVariablesInString(String(feedback.options.prefix ?? ''))
-				const emptyText = await self.parseVariablesInString(String(feedback.options.emptyText ?? ''))
+			callback: async (feedback, context) => {
+				const zoneId = await context.parseVariablesInString(String(feedback.options.zoneId ?? ''))
+				const prefix = await context.parseVariablesInString(String(feedback.options.prefix ?? ''))
+				const emptyText = await context.parseVariablesInString(String(feedback.options.emptyText ?? ''))
 				const value = self.formatMaskingLevel(zoneId, feedback.options.format === 'ui' ? 'ui' : 'api', emptyText)
 
 				return {
