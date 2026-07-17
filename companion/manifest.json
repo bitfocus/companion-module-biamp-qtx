@@ -4,7 +4,7 @@
 	"name": "biamp-qtx",
 	"shortname": "Qt X",
 	"description": "Control Biamp Qt X sound masking systems",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-biamp-qtx.git",
 	"bugs": "https://github.com/bitfocus/companion-module-biamp-qtx/issues",
